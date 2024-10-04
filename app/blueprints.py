@@ -1,4 +1,4 @@
-from .routes.test_routes import test_bp
+from .routes.repository import repository_bp
 
 def register_blueprints(app):
-    app.register_blueprint(test_bp)
+    app.register_blueprint(repository_bp)
