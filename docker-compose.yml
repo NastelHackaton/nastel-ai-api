@@ -9,6 +9,10 @@ services:
     environment:
       FLASK_ENV: development
       FLASK_APP: run.py
+      DATABASE_URI: postgresql://postgres:postgres@postgres:5432/postgres
+    networks:
+      - qdrant-bridge
+      - postgres-bridge
 
   qdrant:
     image: qdrant/qdrant:v1.3.0
@@ -19,6 +23,29 @@ services:
     environment:
       - QDRANT_HTTP_PORT=6333
       - QDRANT_GRPC_PORT=6334
+    networks:
+      - qdrant-bridge
+
+  postgres:
+    image: postgres
+    ports:
+      - 5432:5432
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_NAME=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    restart: always
+    networks:
+      - postgres-bridge
 
 volumes:
+  data:
   qdrant_data:
+
+networks:
+  postgres-bridge:
+    driver: bridge
+  qdrant-bridge:
+    driver: bridge

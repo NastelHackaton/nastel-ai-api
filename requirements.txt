@@ -1,1 +1,6 @@
 flask
+sqlalchemy
+flask_migrate
+flask_sqlalchemy
+python-dotenv
+psycopg2
