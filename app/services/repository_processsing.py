@@ -4,6 +4,10 @@ import aiofiles
 import json
 from typing import List
 
+from qdrant_client.models import Distance, VectorParams
+
+from ..extensions import qdrant_client
+
 class PipelineStage:
     """
         Base class for all pipeline stages. All pipeline stages must inherit from this class"
@@ -22,8 +26,6 @@ class StatGenerationStage(PipelineStage):
         word_count = len(file_content.split())
 
         metadata.update({"line_count": line_count, "word_count": word_count})
-
-        print(f"File: {file_path} has {line_count} lines and {word_count} words")
 
 class FileProcessingPipeline:
     """
@@ -52,10 +54,7 @@ class FileProcessingPipeline:
         }
 
         if metadata["language"] == "unknown":
-            print(f"Skipping file: {file_path} due to unknown language")
             return
-
-        print(f"Processing file: {file_path} with language: {metadata['language']}")
 
         async with aiofiles.open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
             file_content = await file.read()
@@ -81,11 +80,30 @@ class RepositoryProcessor:
             print(f"Repository path does not exist: {self._repo_path}")
             return
 
+        collection_name = self._repo_path.split("/")[-1]
+        collection_name = collection_name.replace(" ", "_").replace('-', '_').lower()
+
+        if not (1 <= len(collection_name) <= 256):
+            raise ValueError(f"Collection name '{collection_name}' is invalid. Must be between 1 and 256 characters.")
+
+        try:
+            if not await qdrant_client.collection_exists(collection_name):
+                print(f"Creating collection: {collection_name}")
+                await qdrant_client.create_collection(
+                    collection_name=collection_name,
+                    vectors_config=VectorParams(size=100, distance=Distance.COSINE),
+                )
+        except Exception as e:
+            print(f"Failed to create collection: {e}")
+            raise e
+
         tasks = []
         for root, _, files in os.walk(self._repo_path, topdown=True):
             for file_name in files:
                 file_path = os.path.join(root, file_name)
 
-                tasks.append(self._pipeline.process_file(file_path))
+                tasks.append(
+                    self._pipeline.process_file(file_path)
+                )
 
         await asyncio.gather(*tasks)

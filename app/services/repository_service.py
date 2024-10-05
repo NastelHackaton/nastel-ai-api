@@ -24,4 +24,3 @@ async def setup(data: SetupRepository) -> tuple[Response, int]:
 
     return jsonify({'message': 'Repository downloaded and extracted successfully!'}) , 200
 
-
