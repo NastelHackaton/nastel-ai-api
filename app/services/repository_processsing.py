@@ -109,4 +109,4 @@ class RepositoryProcessor:
 
         results = await asyncio.gather(*tasks)
 
-        # await qdrant_utils.store_embeddings_for_repo(self._repo_path, results)
+        await qdrant_utils.store_embeddings_for_repo(self._repo_path, results)

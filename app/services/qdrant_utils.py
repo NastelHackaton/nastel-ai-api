@@ -1,6 +1,5 @@
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from typing import List
-import uuid
 from qdrant_client import AsyncQdrantClient
 
 def get_qdrant_client():
@@ -67,8 +66,10 @@ async def store_embeddings_for_repo(repo_path: str, metadatas: List[dict]) -> No
             "word_count": metadata["word_count"],
         }
 
+        id = hash(metadata["file_path"])
+
         point = PointStruct(
-            id=str(uuid.uuid4()),
+            id=id,
             vector=metadata["embeddings"],
             payload=payload
         )
