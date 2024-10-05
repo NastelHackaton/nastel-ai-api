@@ -1,7 +1,7 @@
 from flask import Response, jsonify
 
 from .github_repository_extractor import GithubRepositoryExtractor
-from .repository_processsing import RepositoryProcessor, FileProcessingPipeline, StatGenerationStage
+from .repository_processsing import RepositoryProcessor, FileProcessingPipeline, StatGenerationStage, EmbeddingGenerationStage
 from ..schemas import SetupRepository
 
 async def setup(data: SetupRepository) -> tuple[Response, int]:
@@ -16,7 +16,8 @@ async def setup(data: SetupRepository) -> tuple[Response, int]:
     await RepositoryProcessor(
         repo_path,
         FileProcessingPipeline([
-            StatGenerationStage()
+            StatGenerationStage(),
+            EmbeddingGenerationStage()
         ])
     ).process()
 

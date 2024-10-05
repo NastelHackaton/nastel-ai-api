@@ -28,9 +28,7 @@ async def repository_setup():
         return jsonify({'message': 'Internal Server Error'}), 500
 
     try:
-        response = await repository_service.setup(
-            data
-        )
+        response = await repository_service.setup(data)
 
         return response
 

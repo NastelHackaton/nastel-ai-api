@@ -1,12 +1,11 @@
 import asyncio
 import os
 import aiofiles
-import json
 from typing import List
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+import openai
 
-from qdrant_client.models import Distance, VectorParams
-
-from ..extensions import qdrant_client
+from . import file_language_detection, qdrant_utils
 
 class PipelineStage:
     """
@@ -27,6 +26,29 @@ class StatGenerationStage(PipelineStage):
 
         metadata.update({"line_count": line_count, "word_count": word_count})
 
+class EmbeddingGenerationStage(PipelineStage):
+    """
+        Pipeline stage to generate embeddings for a file
+    """
+
+    async def process(self, file_path: str, file_content: str, metadata: dict):
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=8191, chunk_overlap=200)
+
+        chunks = text_splitter.split_text(file_content)
+
+        for chunk in chunks:
+            response = openai.embeddings.create(
+                input=chunk,
+                model="text-embedding-3-small"
+            )
+
+            embeddings = response.data[0].embedding
+
+            metadata.update({
+                "chunk": chunk,
+                "embeddings": embeddings
+            })
+
 class FileProcessingPipeline:
     """
         Class to process a file through a pipeline of stages
@@ -40,17 +62,9 @@ class FileProcessingPipeline:
         Processes a file by passing it through each stage in the pipeline.
         """
 
-        file_extension = os.path.splitext(file_path)[1]
-
-        with open("./language_map.json", "r") as language_map_file:
-            language_map = json.load(language_map_file)
-            language_results = list(map(
-                    lambda file_args: file_args[0] if file_extension in list(map(
-                        lambda i: i, file_args[1].get("extensions", []))) else None, language_map.items()))
-            language_results = list(filter(None, language_results))
-
         metadata = {
-            "language": language_results[0] if len(language_results) > 0 else "unknown"
+            "language": file_language_detection.detect_language(file_path),
+            "file_path": file_path,
         }
 
         if metadata["language"] == "unknown":
@@ -61,6 +75,8 @@ class FileProcessingPipeline:
 
             for stage in self.stages:
                 await stage.process(file_path, file_content, metadata)
+
+        return metadata
 
 class RepositoryProcessor:
     """
@@ -80,22 +96,7 @@ class RepositoryProcessor:
             print(f"Repository path does not exist: {self._repo_path}")
             return
 
-        collection_name = self._repo_path.split("/")[-1]
-        collection_name = collection_name.replace(" ", "_").replace('-', '_').lower()
-
-        if not (1 <= len(collection_name) <= 256):
-            raise ValueError(f"Collection name '{collection_name}' is invalid. Must be between 1 and 256 characters.")
-
-        try:
-            if not await qdrant_client.collection_exists(collection_name):
-                print(f"Creating collection: {collection_name}")
-                await qdrant_client.create_collection(
-                    collection_name=collection_name,
-                    vectors_config=VectorParams(size=100, distance=Distance.COSINE),
-                )
-        except Exception as e:
-            print(f"Failed to create collection: {e}")
-            raise e
+        await qdrant_utils.create_collection_for_repo(self._repo_path)
 
         tasks = []
         for root, _, files in os.walk(self._repo_path, topdown=True):
@@ -106,4 +107,6 @@ class RepositoryProcessor:
                     self._pipeline.process_file(file_path)
                 )
 
-        await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks)
+
+        # await qdrant_utils.store_embeddings_for_repo(self._repo_path, results)

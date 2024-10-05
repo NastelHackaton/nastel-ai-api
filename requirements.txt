@@ -10,3 +10,4 @@ marshmallow
 requests
 openai
 qdrant_client
+langchain
