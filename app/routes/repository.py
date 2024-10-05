@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 repository_bp = Blueprint('repository', __name__)
 
 @repository_bp.route('/repository/setup', methods=['POST'])
-def repository_setup():
+async def repository_setup():
     """Endpoint to setup the repository."""
 
     try:
@@ -28,10 +28,12 @@ def repository_setup():
         return jsonify({'message': 'Internal Server Error'}), 500
 
     try:
-        response = repository_service.setup(
+        response = await repository_service.setup(
             data
         )
+
         return response
+
     except Exception as err:
         logger.error(f"Error in repository setup: {str(err)}")
         return jsonify({'message': 'Failed to setup repository'}), 500

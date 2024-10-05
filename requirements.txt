@@ -1,4 +1,6 @@
-flask
+flask[async]
+GitPython
+aiofiles
 sqlalchemy
 flask_migrate
 flask_sqlalchemy
