@@ -5,6 +5,8 @@ from typing import List
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import openai
 
+from ..extensions import db
+from ..models import Repository, File, Task
 from .stages import PipelineStage, StatGenerationStage
 from . import file_language_detection, qdrant_utils
 
@@ -74,6 +76,13 @@ class RepositoryProcessor:
         Processes all relevant files in the repository through the pipeline.
         """
 
+        repository = Repository(
+            name=os.path.basename(self._repo_path)
+        )
+        db.session.add(repository)
+
+        db.session.commit()
+
         pipeline = FileProcessingPipeline([
             StatGenerationStage(),
             EmbeddingGenerationStage()
@@ -90,10 +99,42 @@ class RepositoryProcessor:
             for file_name in files:
                 file_path = os.path.join(root, file_name)
 
-                tasks.append(
-                    pipeline.process_file(file_path)
-                )
+                tasks.append(pipeline.process_file(file_path))
+
 
         results = await asyncio.gather(*tasks)
 
         await qdrant_utils.store_embeddings_for_repo(self._repo_path, results)
+
+        for result in results:
+            if result is None:
+                continue
+
+            file = File(
+                path=result["file_path"],
+                repository_id=repository.id
+            )
+
+            db.session.add(file)
+
+            db.session.commit()
+
+            if result["tasks"]:
+                for task in result["tasks"]:
+                    try:
+                        task = Task(
+                            title=task["title"],
+                            description=task["description"],
+                            category=task["category"],
+                            priority=task["priority"],
+                            prompt=task["prompt"],
+                            file_id=file.id
+                        )
+
+                        db.session.add(task)
+                        db.session.commit()
+                    except Exception as e:
+                        print("Error while creating a new task", e)
+
+
+

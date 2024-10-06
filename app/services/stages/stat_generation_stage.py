@@ -45,7 +45,7 @@ class StatGenerationStage(PipelineStage):
 
             Ensure that the tasks are specific to the code provided and not generic. Focus on actionable improvements based on the actual content of the file.
 
-            If the file does not contain code, return only a text containing "This file does not contain code".
+            If the file is not a code file, just zero out the scores and return an empty list of tasks.
 
             The response should be a JSON object with the following structure:
 
@@ -100,18 +100,6 @@ class StatGenerationStage(PipelineStage):
                 "file_path": file_path,
                 "content": file_content
             })
-
-            if "This file does not contain code" in result:
-                metadata.update({
-                    "scores": {
-                        "documentation": 0,
-                        "bugs": 0,
-                        "security": 0,
-                        "performance": 0
-                    },
-                    "tasks": []
-                })
-                return
 
             report = CodeReport(**result)
 
