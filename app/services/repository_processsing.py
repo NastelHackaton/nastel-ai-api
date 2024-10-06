@@ -5,26 +5,9 @@ from typing import List
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import openai
 
+from .stages import PipelineStage, StatGenerationStage
 from . import file_language_detection, qdrant_utils
 
-class PipelineStage:
-    """
-        Base class for all pipeline stages. All pipeline stages must inherit from this class"
-    """
-
-    async def process(self, file_path: str, file_content: str, metadata: dict):
-        raise NotImplementedError("Pipeline stage must implement the `process` method")
-
-class StatGenerationStage(PipelineStage):
-    """
-        Pipeline stage to generate statistics for a file
-    """
-
-    async def process(self, file_path: str, file_content: str, metadata: dict):
-        line_count = len(file_content.split("\n"))
-        word_count = len(file_content.split())
-
-        metadata.update({"line_count": line_count, "word_count": word_count})
 
 class EmbeddingGenerationStage(PipelineStage):
     """
@@ -83,14 +66,18 @@ class RepositoryProcessor:
         Class to process a repository through a pipeline
     """
 
-    def __init__(self, repo_path: str, pipeline: FileProcessingPipeline):
-        self._pipeline = pipeline
+    def __init__(self, repo_path: str):
         self._repo_path = repo_path
 
     async def process(self):
         """
         Processes all relevant files in the repository through the pipeline.
         """
+
+        pipeline = FileProcessingPipeline([
+            StatGenerationStage(),
+            EmbeddingGenerationStage()
+        ])
 
         if not os.path.exists(self._repo_path):
             print(f"Repository path does not exist: {self._repo_path}")
@@ -104,7 +91,7 @@ class RepositoryProcessor:
                 file_path = os.path.join(root, file_name)
 
                 tasks.append(
-                    self._pipeline.process_file(file_path)
+                    pipeline.process_file(file_path)
                 )
 
         results = await asyncio.gather(*tasks)

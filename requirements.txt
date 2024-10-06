@@ -11,3 +11,4 @@ requests
 openai
 qdrant_client
 langchain
+langchain_openai

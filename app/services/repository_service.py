@@ -1,7 +1,7 @@
 from flask import Response, jsonify
 
 from .github_repository_extractor import GithubRepositoryExtractor
-from .repository_processsing import RepositoryProcessor, FileProcessingPipeline, StatGenerationStage, EmbeddingGenerationStage
+from .repository_processsing import RepositoryProcessor
 from ..schemas import SetupRepository
 
 async def setup(data: SetupRepository) -> tuple[Response, int]:
@@ -13,13 +13,10 @@ async def setup(data: SetupRepository) -> tuple[Response, int]:
     except Exception as e:
         return jsonify({'message': 'Failed to download and extract repository', "error": e}), 400
 
-    await RepositoryProcessor(
-        repo_path,
-        FileProcessingPipeline([
-            StatGenerationStage(),
-            EmbeddingGenerationStage()
-        ])
-    ).process()
+    try:
+        await RepositoryProcessor(repo_path).process()
+    except Exception as e:
+        return jsonify({'message': 'Failed to process repository', "error": e}), 400
 
     print(f"Repository downloaded and extracted to: {repo_path}")
 
